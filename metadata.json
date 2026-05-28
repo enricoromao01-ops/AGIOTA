@@ -1,0 +1,6 @@
+{
+  "name": "Sistema de Agiota",
+  "description": "Sistema completo para controle de empréstimos, juros, histórico de pagamentos e saldo devedor por cliente.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
