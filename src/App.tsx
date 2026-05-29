@@ -12,7 +12,7 @@ import { ClientDetails } from './components/ClientDetails';
 import { 
   Search, Plus, UserPlus, Filter, ShieldCheck, Download, Upload, 
   RefreshCw, TrendingUp, HelpCircle, DollarSign, Calculator, Percent,
-  MessageCircle, Bell, X, Check, Trash2, AlertTriangle
+  MessageCircle, Bell, X, Check, Trash2, AlertTriangle, Lock, LogOut, Key
 } from 'lucide-react';
 
 export default function App() {
@@ -39,6 +39,29 @@ export default function App() {
     return localStorage.getItem('agiota_msg_template') || 
       'Olá *{nome}*, passando para lembrar do juro pactuado de *{taxa}%* ({periodo}) referente ao empréstimo com saldo devedor atual de *{saldo_devedor}*. O valor devido do ciclo de juros atual é de *{valor_ciclo_juros}*. Você pode nos transferir por Pix. Obrigado!';
   });
+
+  // Authenticated Session State
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return sessionStorage.getItem('agiota_logged_in') === 'true';
+  });
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  
+  // Custom system username/password stored in localStorage
+  const [systemUser, setSystemUser] = useState(() => {
+    return localStorage.getItem('system_auth_user') || 'admin';
+  });
+  const [systemPass, setSystemPass] = useState(() => {
+    return localStorage.getItem('system_auth_pass') || 'admin';
+  });
+
+  // Password alteration states
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+  const [newSystemUser, setNewSystemUser] = useState(systemUser);
+  const [newSystemPass, setNewSystemPass] = useState(systemPass);
+  const [securitySuccessMsg, setSecuritySuccessMsg] = useState('');
 
   // Custom Confirmation Modals states
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
@@ -151,6 +174,45 @@ export default function App() {
     setShowRestoreConfirm(true);
   };
 
+  // Auth & Security Handlers
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginUser.trim().toLowerCase() === systemUser.trim().toLowerCase() && loginPass === systemPass) {
+      setIsLoggedIn(true);
+      sessionStorage.setItem('agiota_logged_in', 'true');
+      setLoginError('');
+      setLoginUser('');
+      setLoginPass('');
+    } else {
+      setLoginError('❌ Usuário ou senha incorretos. Verifique os dados inseridos e tente novamente.');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    sessionStorage.removeItem('agiota_logged_in');
+  };
+
+  const handleSaveSecuritySettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSystemUser.trim() || !newSystemPass.trim()) {
+      setCustomAlert({
+        title: 'Campos Vazios',
+        message: 'O usuário e a senha de acesso não podem ficar em branco.'
+      });
+      return;
+    }
+    setSystemUser(newSystemUser.trim());
+    setSystemPass(newSystemPass);
+    localStorage.setItem('system_auth_user', newSystemUser.trim());
+    localStorage.setItem('system_auth_pass', newSystemPass);
+    setSecuritySuccessMsg('Credenciais de acesso atualizadas com sucesso!');
+    setTimeout(() => {
+      setSecuritySuccessMsg('');
+      setIsSecurityModalOpen(false);
+    }, 1800);
+  };
+
   // Export current list to a JSON file (essential for manual control backup)
   const handleExportData = () => {
     const dataStr = JSON.stringify(clients, null, 2);
@@ -234,6 +296,94 @@ export default function App() {
   const simInterestEarned = simLoan * (simRate / 100) * simTime;
   const simTotalReturn = simLoan + simInterestEarned;
 
+  // If not logged in, render the login form
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans relative overflow-hidden">
+        {/* Ambient background glow elements */}
+        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="max-w-md w-full z-10 space-y-8">
+          <div className="text-center space-y-3">
+            <div className="inline-flex w-16 h-16 bg-slate-800 rounded-2xl items-center justify-center border border-slate-700 shadow-xl text-emerald-400">
+              <ShieldCheck className="w-9 h-9" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-white tracking-tight">GESTÃO DE CARTEIRA</h2>
+              <p className="text-xs text-slate-400 font-mono tracking-widest uppercase mt-1">Painel de Controle Financeiro</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-850 border border-slate-700 rounded-2xl p-8 shadow-2xl space-y-6">
+            <div className="space-y-1">
+              <h3 className="font-bold text-lg text-slate-200">Acesso Restrito</h3>
+              <p className="text-xs text-slate-400">Insira suas credenciais para gerenciar devedores e cobranças.</p>
+            </div>
+
+            {loginError && (
+              <div className="bg-red-500/15 border border-red-500/30 text-red-200 text-xs p-3.5 rounded-xl font-medium tracking-wide leading-relaxed">
+                {loginError}
+              </div>
+            )}
+
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Usuário</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={loginUser}
+                  onChange={(e) => setLoginUser(e.target.value)}
+                  placeholder="Seu usuário"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Senha de Acesso</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[10px] text-slate-400 hover:text-emerald-400 cursor-pointer font-bold focus:outline-none text-right"
+                  >
+                    {showPassword ? 'Ocultar' : 'Mostrar'}
+                  </button>
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={loginPass}
+                  onChange={(e) => setLoginPass(e.target.value)}
+                  placeholder="••••••"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-transparent transition-all font-mono"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-900/40 cursor-pointer flex items-center justify-center gap-2 mt-2"
+              >
+                <Key className="w-4 h-4" /> Entrar no Sistema
+              </button>
+            </form>
+          </div>
+
+          {/* Callout box showing default credentials safely to avoid blocking */}
+          <div className="bg-slate-800/50 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400 space-y-1">
+            <p className="font-semibold text-slate-300">💡 Credenciais Padrão do Sistema</p>
+            <p className="font-mono text-[11px]">
+              Usuário: <span className="text-emerald-400 font-bold">admin</span> | Senha: <span className="text-emerald-400 font-bold">admin</span>
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1">Você pode alterar essas credenciais a qualquer momento no painel de controle após realizar o acesso.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-slate-800 pb-12">
       {/* HEADER DECK */}
@@ -286,6 +436,25 @@ export default function App() {
               className="p-1.5 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-amber-400 rounded border border-slate-700 transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => {
+                setNewSystemUser(systemUser);
+                setNewSystemPass(systemPass);
+                setSecuritySuccessMsg('');
+                setIsSecurityModalOpen(true);
+              }}
+              title="Configurar credenciais de segurança do sistema"
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-amber-500 rounded transition-colors flex items-center gap-1 cursor-pointer font-bold"
+            >
+              <Lock className="w-3.5 h-3.5" /> Senha
+            </button>
+            <button
+              onClick={handleLogout}
+              title="Sair do sistema com segurança"
+              className="px-2.5 py-1.5 bg-red-650 hover:bg-red-700 border border-red-600 text-white rounded transition-colors flex items-center gap-1 cursor-pointer font-bold"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Sair
             </button>
           </div>
         </div>
@@ -895,6 +1064,72 @@ export default function App() {
                 Restaurar Base Exemplo
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIGURAR CREDENCIAIS / ALTERAR SENHA */}
+      {isSecurityModalOpen && (
+        <div id="modal-security-settings" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl flex flex-col p-6 space-y-4 font-sans">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <Lock className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-lg text-slate-900">Segurança de Acesso</h3>
+                <p className="text-xs text-slate-500 font-mono">Defina suas credenciais locais de login</p>
+              </div>
+            </div>
+
+            {securitySuccessMsg && (
+              <div className="bg-emerald-50 border border-emerald-250 text-emerald-800 text-xs p-3 rounded-lg font-bold">
+                ✓ {securitySuccessMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveSecuritySettings} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Usuário de Acesso</label>
+                <input
+                  type="text"
+                  required
+                  value={newSystemUser}
+                  onChange={(e) => setNewSystemUser(e.target.value)}
+                  placeholder="Ex: admin"
+                  className="w-full bg-white border border-slate-250 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nova Senha</label>
+                <input
+                  type="text"
+                  required
+                  value={newSystemPass}
+                  onChange={(e) => setNewSystemPass(e.target.value)}
+                  placeholder="Ex: 123456"
+                  className="w-full bg-white border border-slate-250 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                />
+                <p className="text-[10px] text-slate-400">Guarde essa senha em local seguro para não perder o acesso ao sistema.</p>
+              </div>
+
+              <div className="flex items-center gap-3 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSecurityModalOpen(false)}
+                  className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold px-4 py-2 rounded-lg text-xs transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-amber-650 hover:bg-amber-750 text-white font-bold px-4 py-2 rounded-lg text-xs transition-all shadow-sm cursor-pointer"
+                >
+                  Salvar Credenciais
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
